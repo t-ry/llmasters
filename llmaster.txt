@@ -1,0 +1,289 @@
+■Function calling
+    ・利用可能な関数をLLMに伝えておいて、推論のためのテキストをインプットすると、
+    　LLMが使いたい関数とその引数を返してくれること。
+    ・流れ
+        ①使いたい関数を定義
+        ②toolsという関数で、①で定義した関数の説明とパラメータを定義する。
+        ③tools=toolsとして、LLMに質問をインプット
+        ④choicesのmessageのcontentには、nullが返され、その代わりtool_callsという要素に
+        　使用したい関数とその引数が返される。
+        ⑤この応答を会話履歴として、messagesにアペンドする。
+        ⑥④の引数を解析して、当該関数を呼び出し、関数の実行結果を会話履歴としてmessagesにアペンド
+        ⑦⑥のmessagesを使って、もう一度APIにリクエストを送る。
+        ⑧最終的な回答を入手。
+    ※Function callingは、単にJSON形式のデータを生成させるためにも使うことができる。
+⇒Function callingやJSONモードを使用しただけでは、出力がJSONとして有効であることが保証されるだけで、
+　指定したスキーマと一致することは保証されない。
+⇒JSON形式の出力を保証する機能が、「Structured Output」機能
+
+
+【プロンプトエンジニアリング】
+    ・AIモデルに対して効果的な入力（プロンプト）を設計し、望ましい結果や応答を引き出すためのアプローチ
+
+    ■Zero-shotプロンプティング
+        ・プロンプトに明示的な例を与えず、タスクを処理させるプロンプトの与え方
+        例）"role": "system", "content": "入力をポジティブ・ネガティブ・中立のどれかに分類してください"
+            "role": "user", "content": "ChatGPTはプログラミングの悩み事をたくさん解決してくれる"
+            ★response.choices[0].message.content⇒ポジティブ
+    
+    ■Few-shotプロンプティング
+        ・プロンプトでいくつかデモンストレーションを与えることで、求める回答を得やすくなるすること。
+        ・プロンプト内のいくつかの例によって言語モデルにタスクを学ばせることを、In-context Learning(ICL)を言うこともある。
+        例1）
+            "role": "system", "content": "入力がAIに関係するか回答してください。"
+            "role": "user", "content": "AIの進化はすごい"
+            "role": "assistant", "content": "true"
+            "role": "user", "content": "今日はいい天気だ"
+            "role": "assistant", "content": "false"
+            "role": "user", "content": "ChaptGPTはとても便利だ"
+        ※例示が会話履歴ではないことを強調するために、nameにexample_userやexample_assistantを設定することもできる
+        例2）
+            prompt = '''\
+            入力がAIに関係するか回答してください。
+
+            Q:AIの進化はすごい。
+            A:true
+            Q:今日はいい天気だ
+            A:false
+            Q:ChaptGPTはとても便利だ
+            A:
+            '''
+            model ="gpt-4o-mini",
+            prompt = prompt
+            ★response.choices[0].text
+    ■Zero-shot Chain-ofThoughtプロンプティング（略してZero-shot CoT）
+        ・プロンプトに「ステップバイステップで考えてください。」といった一言を追加する手法
+
+【LangChain】
+    ・LLMアプリケーション開発のフレームワークのこと。
+    ・構成要素：
+        ・langchain-core
+        ・langchain-openai
+        ・langchain-community
+        ・langchain
+        ・langchain-tet-splitters
+        ・langchain-experimental
+        ##エコシステム##
+            ・LangSmith
+            ・langserve
+            ・langgraph
+        ・LangChain Templates
+    
+    ■langchain-core
+        ・LangChainのベースとなる抽象化とLangChain Expression Languageを提供するパッケージ
+
+    ■langchain-openaiなどのpartnersとlangchain-community
+        ・OpenAIなどの様々なサービスやOSSとのインテグレーション
+        例）langchain-openai、langchain-google-genai、langchain-awsなど
+        ・なお、partnersとして独立していない各種インテグレーションは、langchain-communityというパッケージでまとめて提供されている。
+
+    ■LangChain・langchain-text-splitters・langchain-experimental
+        ・ユースケースに特化した機能を提供
+        ・研究、実験目的のコードや、既知の脆弱性を含むコードについては、langchain-experimentalというパッケージに分離されている。
+
+    ◆LangChainの主要なコンポーネント
+        ・LLM/Chat model：様々な言語モデルとのインテグレーション
+        ・Prompt template：プロンプトのテンプレート
+        ・Example selector：Few-shotプロンプティングの例を動的に選択
+        ・Output parser：言語モデルの出力を指定した形式に変換
+        ・Chain：各種コンポーネントを使った処理の連鎖
+        ・Document loader：データソースからドキュメントを読み込む
+        ・Document transformer：ドキュメントに何らかの変換をかける
+        ・Embedding model：ドキュメントをベクトル化する
+        ・Vector store：ベクトル化したドキュメントの保存先
+        ・Retriever：入力のテキストと関連するドキュメントを検索する
+        ・Tool：Function callingなどでモデルが使用する関数を抽象化
+        ・Toolkit：同時に使用することを想定したToolのコレクション
+        ・Chat history：会話履歴の保存先としての各種データベースとのインテグレーション
+    
+
+        ●Prompt template：
+            ・プロンプトをテンプレート化できる。
+            ・会話履歴のように複数のメッセージを入れるプレースホルダを設けることもできる。
+            　（MessagesPlaceholder）
+            ・さらに、LangSmithのPromptsを使うと、プロンプトの共有やバージョン管理ができるようになる。
+            ⇒LangSmithの画面上で編集したり、共有することができ、Gitのようにバージョン管理もされる。
+        
+        ●Output parser：
+            ・JSONなどの出力形式を指定するプロンプトの作成と、応答のテキストのPythonオブジェクトへの変換機能を提供
+            ・PydanticOutputParseもその一種
+            　※実際は、「with_structured_output」を使うことが推奨
+            ・PydanticOutputParserのポイント：
+                ①クラスの定義をもとに、出力形式を指定する文字列が自動的に作られた
+                ⇒これをプロンプトに含めることで、出力形式を指定している。★でもこれって結局プロンプトでJSON指定しているだけでは？？
+                ②LLMの出力を簡単にクラスのインスタンスに変換できた。
+            ・StrOutputParserもその一種：
+                ・LLMの出力をテキストに変換するために使用する。
+        ●LangChain Expression Language(LCEL)：
+            ・処理の連鎖を実現させるのが、LangChainの「Chain」。
+            ・LCELは、Chainの記述方法。「|」
+            例）LLMの出力結果をもとに、SQLを実行してデータを分析させたい。、
+                Prompt templateを穴埋めして、その結果をChat modelに与え、その結果をPythonのオブジェクトに変換したい。など
+            ・LangChainでは、Prompt templete・LLM/Chat model・Output parserを連結して、
+            　Chainとして一連の処理を実行するのが基本。
+            （chain = prompt_with_format_instructions | model | output_parser）
+        
+        ※with_structured_outputについて：★めちゃめちゃ簡単！★
+        　↓↓これするだけ！
+        　ただし、ChatOpenAIなど一部のChat modelのみでサポートされているので、使えないモデルもあることは要注意
+        　chain = prompt | model.with_structured_output(Recipe)
+        
+        ●RAG（Retrieval-Augmented Generation）：
+            ・プロンプトに文脈（context）を入れる方法。
+            ・質問に関係する文書をcontextに含めることで、LLMが本来知らないことを回答してくれる。
+            ・ただし、LLMにはトークン数の最大値制限があるため、あらゆるデータをcontextに含めることはできない。
+            ⇒★入力をもとに文書を検索して、検索結果をcontextに含めてLLMに回答させる手法をRAGと呼ぶ。
+            ・RAGの典型的な構成としては、ベクターデータベースを使い、文書をベクトル化して保存。
+            　入力のテキストとベクトルの近い文書を検索してcontextに含める。
+            　文書のベクトル化には、OpenAIのEmbedding APIなどを使用する。
+        
+            ■LangChainでRAGに使用するために提供されている主要なコンポーネント
+                ・Document loader：データソースからドキュメントを読み込む
+                ・Document transformer：ドキュメントに何らかの変換をかける
+                ・Embeding model：ドキュメントをベクトル化する
+                ・Vector store：ベクトル化したドキュメントの保存先
+                ・Retriever：入力のテキストと関連するドキュメントを検索する
+            
+            ●Document loader：
+                ・本来はドキュメントをビルドしてから読み込むようにすると、より適切な挙動になる。
+                　（本書では、ビルドは省略）
+                ・Document loaderの種類は非常に多い。以下公式ドキュメントにて網羅
+                <https://python.langchain.com/v0.3/docs/integrations/document_loaders/>
+
+            ●Document transformer：
+                ・例えば、ある程度の長さでチャンクに分割して、LLMへのトークン数を削減したり。
+                （from langchain_text_splitters import CharacterTextSpliter）
+                ・他にも、HTMLのプレーンテキスト化、ユーザ質問と関連しやすくなるよう、ドキュメントからQ&Aを生成するなどの変換処理がサポートされている。
+            
+            ●Embeding model：
+                ・テキストのベクトル化
+                （from langchain_openai import OpenAIEmbeddings）
+                ★マンハッタン距離：
+                    ・２つのベクトルの各要素の差の絶対値を合計した値。
+                    例）4次元ベクトルとして、[2,3,-1,0]と[4,-2,1,1]があった場合、
+                    　　各要素の差の絶対値は、[2,5,2,1]となり、マンハッタン距離は、10となる。
+                    　　すなわち、各要素が近いほど、マンハッタン距離は小さくなる。
+                ★ユークリッド距離：
+                    ・最も有名な距離
+                ★コサイン類似度：
+                    ・ある条件下でユークリッド距離と同じ大小関係になる。
+            
+            ●Vector store：
+                （from langchain_chroma import Chroma）
+                ・Chroma以外にも、Faiss、Elasticsearch、Redisなどのインテグレーションが提供されている。
+                ・Vector storeに対しては、ユーザの入力に関連するドキュメントを得る操作を行うが、
+                　この操作をLangChainでは、「Retriever」という。
+                （retriever = db.as_retriever()）
+                ⇒Retrieverも内部では、ベクトル化していて、
+                　chromaに格納されたベクトル化されたドキュメントとqueryの検索をかけている。
+        ※実際にRAGの機能を運用する際は、ドキュメントを一度だけVecor storeに格納すればよいわけではなく、
+        　ドキュメントの更新時にVector storeと同期する処理が必要になることが多い。
+        　このような同期処理をうまく実現するために、LangChainでは、Indexing APIと呼ばれる機能が提供されている。
+        　以下ドキュメント
+        　<https://python.langchain.com/v0.3/docs/how_to/indexing/>
+    
+    ◆LangChain Expression Language(LCEL)徹底解説
+        ・LCELの最も基本的な実装は、Prompt template・Chat model・Output parserを連結処理すること。
+        　これら3のインターフェイスは、すべてLangChainの「Runnabled」という抽象基底クラスを継承している。
+        ・Runneblesを「|」でつなぐと、「Runnable Sequence」になる。
+        ・invoke以外に、streamとbatchがある。
+        ●stream：
+            ・Runnableをストリーミングで実行するメソッド。
+            （　for chunk in chain.stream({"input": ""}:
+                　print(chun, end="", flush=True)　）
+        ●batch：
+            ・複数の入力をまとめて処理
+            （　outputs = chain.batch([{"input": ""}, {"input": ""}])　）
+        ※これらを非同期処理にした、ainvoke・astream・abatchというメソッドも提供されている。
+        
+        ・Runnableを連結した、chainもRunnableのため、「|」で連結することができる。
+        ⇒すなわち、複数回LLMを呼び出すことになる。
+        　例）Zero-shot CoTで考えさせて、その結果から結論だけを抽出させる
+            　（ cot_summarize_chain = cot_chain | summarize_chain　）
+
+        ●RunnableLambda
+            ・任意の関数をRunnableに設定することができる。
+            例）小文字→大文字変換関数upperをchainに含める。
+            　chain = prompt | model | output_parser | RunnableLambda(upper)
+            ・また、関数定義前に「@chain」を付与することで、RunnableLambdaを定義することもできる。
+            →chainデコレーター
+            例）@chain
+            　　def upper(text: str) -> str:
+
+            　　chain = prompt | model | output_parser | upper
+        
+            ・独自の関数をstreamに対応させたい場合：
+                ・上記の場合だと、chainの実行結果は、最後まで処理が終わったタイミングで
+                　upperの結果が返される。
+                ⇒ジェネレータ関数として、入力を徐々に処理して徐々に値を返す関数を実装できる。
+                ・例）
+                    from typing import Iterator
+                    @chain
+                    def upper(input_stream: Iterator[str]) -> Iterator[str]:
+                        for text in input_stream:
+                            yeild text.upper()
+                    chain = prompt | model | output_parser| upper
+         
+        ●RunnableParallel：
+            ・Runnableの並列処理を可能とすること。
+            ・例えば、生成AIの進化について、楽観的な意見と悲観的な意見を生成させるなど。
+            例）parallel_chain = RunnableParallel (
+                {
+                    "optimistic_opinion": optimistic_chain
+                    "pessimistic_opnion": pessimistic_chain
+                }
+            )
+            output = parallel_chain.invoke()
+            ・さらに、parallelを「|」で連結させることができる。
+            　上記例として、楽観的意見と悲観的意見をようやくさせるなど。
+            ★python標準ライブラリのitemgetterとの組み合わせが便利
+
+
+        ※RunnableParallelでは、並列につないだRunnableが両方実行されるが、
+        　状況に応じてどちらかのChainだけを選択して実行する「ルーティング」も可能。
+        　<https://python.langchain.com/v0.3/docs/how_to/routing/>
+
+        ●RunnablePassthrough：
+            ・RunnableParalellを使用する際、入力の値をそのまま出力したい時に使える機能。
+        
+        ●会話履歴の管理
+            ・LangChainを使って、チャットボットを実装していると、会話履歴を管理したくなるが、
+            　LangChainには、Chat historyとMemoryという機能がある。
+            ■Chat history
+                ・会話履歴の保存先の読み書きを担うコンポーネント。
+                ・以下コンポーネント例
+                    ・InMemoryChatMessageHistory：インメモリ
+                    ・SQLChatMessageHistory：SQLAlchemyがサポートする各種RDB
+                    ・RedisChatMessageHistory：Redis
+                    ・DynamoDBChatMessageHistory：Amazon DynamoDB
+                    ・CosmosDBChatMessageHistory：Azure Cosmos DB
+                    ・MemontoChatMessageHistory：Momento
+                ・これらの形式で会話履歴を管理すれば十分な運用の場合は、めちゃくちゃ便利。
+                ・一方で、独自に定義したデータベースのスキーマで会話履歴を管理したい場合は、無理にChat historyを使わないほうが良い。
+
+            ■Memory：
+                ・例えば、直近Kこの会話履歴だけをプロンプトに含めたい、LLMを使って会話履歴を要約したいといった
+                　会話履歴について、高度な処理を実装しなくなった際に使えるのは、
+                　ConversationBufferWindowMemoryやConversationSummaryMemory
+                ・ただあまり使用しないほうがいいかも。
+        ●LangServe
+            ・LangChainのRunnableを簡単にREST APIにするパッケージ
+            ・LangServeでは、APIを提供するサーバー側とAPIを呼び出すクライアント側が実装されている。
+            ・たとえば、ストリーミングで応答するAPIを自前で実装するのは少し手間がかかるが、
+            　LangServeを使えば、非常に簡単に実装することができる。
+
+【Advanced RAG】
+・RAGにおいて、以下各所に工夫ポイントがある。
+    ・Indexing
+    ・Query Translation
+    ・Routing
+    ・Query Construction
+    ・Retrieval
+    ・Generation
+・それぞれに工夫ポイントがあり、複数個所に工夫を施すことで、発展的なRAGの構築ができる。
+※インデクシングについて、特に大きなドキュメントの場合は、適切な大きさでチャンク化したり、
+　インデクシングする際に、ドキュメントのカテゴリーなどをメタデータとして保存しておくことで、
+　検索時にフィルタリングすることができ、検索制度を高められる場合がある。
+　そもそもRAGの制度は検索対象のドキュメントの質に大きく依存。
+　精度が向上しなければ、ドキュメントの質を疑ってみるのもあり。
+
