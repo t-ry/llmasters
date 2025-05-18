@@ -63,8 +63,8 @@ print(first_doc.page_content)
 
 
 # クエリの埋め込みベクトルを生成する例（コメントアウト）
-#vector = embeddings.embed_query(query)
-#print(len(vector))
-#print(vector)
+vector = embeddings.embed_query(query)
+print(len(vector))
+print(vector)
 
 

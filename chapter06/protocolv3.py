@@ -41,16 +41,17 @@ prompt = ChatPromptTemplate.from_template('''\
 # データベースから関連文脈を検索するためのリトリーバーを作成
 retriever = db.as_retriever()
 
-# 処理チェーンの構築
-# 1. 質問を受け取り
-# 2. 関連文脈を検索
-# 3. プロンプトテンプレートに適用
-# 4. GPTモデルで回答生成
-# 5. 文字列として出力
+# 処理チェーンの構築（ストリーミング対応）
 chain = {
     "question": RunnablePassthrough(),
     "context": retriever,
-} | prompt | model | StrOutputParser()
+} | prompt | model
 
 # チェーンを実行して質問に回答
-print(chain.invoke("プロトコルバージョン2との違いは何？"))
+#print(chain.invoke("プロトコルバージョン2との違いは何？"))
+
+# ストリーミングで回答を表示
+for chunk in chain.stream("プロトコルバージョン2との違いは何？"):
+    if hasattr(chunk, 'content'):
+        print(chunk.content, end="", flush=True)
+print()  # 最後に改行を追加
