@@ -1,4 +1,4 @@
-【LangChain と LangGraph による RAG・AI エージェント［実践］入門】を学習するために作成した、GitHubリポジトリ
+# 【LangChain と LangGraph による RAG・AI エージェント［実践］入門】を学習するために作成した、GitHubリポジトリ
 
 
 
@@ -9,8 +9,9 @@
      + LANGCHAIN_APIKEY
      + LANGCHAIN_PROJECT　※LangSmithで使用
      + LANGCHAIN_TRACING_V2　※LangSmithで使用  
-+ ディレクトリ構造はこんな感じ  
-  
++ ディレクトリ構造はこんな感じ
+
+<pre>
 ├── llmasters  
 │   ├── .env  
 │   ├── .git  
@@ -24,4 +25,4 @@
 │   ├── llmaster.txt　★勉強用メモ  
 │   ├── llmasters　★仮想環境（venv）  
 │   └── requirements.txt  
-  
+<pre>
