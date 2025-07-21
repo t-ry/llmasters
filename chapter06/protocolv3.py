@@ -51,7 +51,7 @@ chain = {
 #print(chain.invoke("プロトコルバージョン2との違いは何？"))
 
 # ストリーミングで回答を表示
-for chunk in chain.stream("プロトコルバージョン2との違いは何？"):
+for chunk in chain.stream("R1の定義は何？"):
     if hasattr(chunk, 'content'):
         print(chunk.content, end="", flush=True)
 print()  # 最後に改行を追加
